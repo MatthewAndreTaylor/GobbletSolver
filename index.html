@@ -37,15 +37,52 @@
             display: flex;
             gap: 5px;
         }
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            padding: 20px;
+            background-color: #333;
+            color: white;
+            border-radius: 5px;
+            text-align: center;
+            border-radius: 3px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            top: 30px;
+        }
+
+        #toast.show {
+            visibility: visible;
+            animation: fadein 0.5s, fadeout 1s 3s;
+        }
+
+        @keyframes fadein {
+            from {top: 0; opacity: 0;}
+            to {top: 30px; opacity: 1;}
+        }
+
+        @keyframes fadeout {
+            from {top: 30px; opacity: 1;}
+            to {top: 0; opacity: 0;}
+        }
     </style>
 </head>
 <body>
+    <div id="toast"></div>
     <div id="orange-unused-pieces" class="piece-container"></div>
     <div id="board" class="board"></div>
     <div id="blue-unused-pieces"  class="piece-container"></div>
     
     <script src="shared.js"></script>
     <script>
+
+        function showToast(text) {
+            let toast = document.getElementById("toast");
+            toast.className = "show";
+            toast.textContent = text;
+            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 4000);
+        }
 
         // Game setup and rendering
         const boardElement = document.getElementById('board');
@@ -117,9 +154,21 @@
                     else if (cell) {
                         cell.remove();   
                     }
+                }
             }
+
+            if (gameOver(game)) {
+                let utility = computeUtility(game, 0);
+                let text;
+                if (utility > 0) {
+                    text = 'You Win!';
+                } else if (utility < 0) {
+                    text = 'You Lose!';
+                } else {
+                    text = 'Draw!';
+                }
+                showToast(text);
             }
-            
         }
 
         function startNewGame() {

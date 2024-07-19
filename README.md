@@ -10,6 +10,8 @@ python main.py
 
 Select the piece you want to move by clicking it and click an end location on the board afterwards
 
+In the browser you are the <span style="color: lightblue;">blue</span> player and start first.
+
 ## Game information 🔍
 
 [Gobblet wiki](https://en.wikipedia.org/wiki/Gobblet)
