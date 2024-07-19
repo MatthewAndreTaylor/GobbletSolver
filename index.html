@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Matthew Taylor">
+    <meta name="description" content="This webpage is an ai agent for the gobblet game.">
+    <meta name="keywords" content="Matthew Taylor, coding, programming, games">
+    <title>Gobblet Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 5px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 5px solid #333;
+            font-size: 24px;
+        }
+        .piece-container {
+            padding: 100px;
+            display: flex;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="orange-unused-pieces" class="piece-container"></div>
+    <div id="board" class="board"></div>
+    <div id="blue-unused-pieces"  class="piece-container"></div>
+    
+    <script src="shared.js"></script>
+    <script>
+
+        // Game setup and rendering
+        const boardElement = document.getElementById('board');
+        const orangeUnusedPieces = document.getElementById('orange-unused-pieces');
+        const blueUnusedPieces = document.getElementById('blue-unused-pieces');
+        const playerPieceContainers = [blueUnusedPieces, orangeUnusedPieces];
+
+        let currentGame = null;
+
+        let playerColors = ['blue', 'orange'];
+
+        let board = [
+                [[-1], [-1], [-1]],
+                [[-1], [-1], [-1]],
+                [[-1], [-1], [-1]]
+            ];
+        let players = [
+            new Player([0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5]),
+            new Player([6, 7, 8, 9, 10, 11], [6, 7, 8, 9, 10, 11])
+        ];
+
+        function createBoard() {
+            boardElement.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    boardElement.appendChild(cell);
+                }
+            }
+
+            // Each player has a list unused pieces
+            for (let i = 0; i < 2; i++) {
+                for (let piece of players[i].unusedPieces) {
+                    const pieceElement = document.createElement('div');
+                    pieceElement.classList.add('cell');
+                    pieceElement.dataset.id = piece;
+                    playerPieceContainers[i].appendChild(pieceElement);
+                }
+            }
+            
+        }
+
+        function updateBoard(game) {
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const cell = document.querySelector(`.cell[data-row='${i}'][data-col='${j}']`);
+                    cell.textContent = '';
+                    if (game.board[i][j].slice(-1)[0] !== -1) {
+                        const piece = game.board[i][j].slice(-1)[0];
+                        cell.textContent = getPower(piece);
+                        cell.style.color = playerColors[getColor(piece)];
+                    } else {
+                        cell.style.color = 'black';
+                    }
+                }
+            }
+
+            // Each player has a list unused pieces
+            for (let i = 0; i < 2; i++) {
+                for (let piece of game.players[i].pieces) {
+                    const cell = document.querySelector(`.cell[data-id='${piece}']`);
+                    if (game.players[i].unusedPieces.includes(piece)) {
+                        cell.textContent = getPower(piece);
+                        cell.style.color = playerColors[i];
+                    }
+                    else if (cell) {
+                        cell.remove();   
+                    }
+            }
+            }
+            
+        }
+
+        function startNewGame() {
+            currentGame = new GameConfig(board, players);
+            updateBoard(currentGame);
+        }
+
+        let selection = null;
+        let my_turn = true;
+
+        blueUnusedPieces.addEventListener('click', (e) => {
+            const piece = parseInt(e.target.dataset.id);
+            if (selection === null) {
+                selection = [piece, null];
+                const cell = document.querySelector(`.cell[data-id='${piece}']`);
+                cell.style.backgroundColor = 'lightyellow';
+            } else {
+                let selection_pid = selection[0];
+                const cell = document.querySelector(`.cell[data-id='${selection_pid}']`);
+                cell.style.backgroundColor = 'white';
+                selection = null;
+            }
+        });
+
+        boardElement.addEventListener('click', (e) => {
+
+            const row = parseInt(e.target.dataset.row);
+            const col = parseInt(e.target.dataset.col);
+
+            if (!my_turn) {
+                return;
+            }
+
+            if (selection == null) {
+                let pid = currentGame.board[row][col].slice(-1)[0];
+                if (pid in currentGame.players[0].pieces) {
+                    const cell = document.querySelector(`.cell[data-row='${row}'][data-col='${col}']`);
+                    cell.style.backgroundColor = 'lightyellow';
+                    selection = [pid, [row, col]];
+                }
+                return;
+            }
+
+            let selection_pid = selection[0];
+            let start_pos = selection[1];
+
+            const move = new Move(selection_pid, start_pos, [row, col]);
+
+            if (!moveExists(getPossibleMoves(currentGame, 0), move)) {
+                return;
+            }
+
+            currentGame = play_move(currentGame, 0, move);
+            const cell = document.querySelector(`.cell[data-row='${row}'][data-col='${col}']`);
+            cell.style.backgroundColor = 'white';
+            
+            updateBoard(currentGame);
+            selection = null;
+
+            my_turn = false;
+
+            // Logic to handle the AI's move
+            const ai_selection = selectMoveAlphabeta(currentGame, 1, 3);
+            const aiMove = ai_selection[0];
+            console.log(aiMove);
+
+            currentGame = play_move(currentGame, 1, aiMove);
+            updateBoard(currentGame);
+
+            my_turn = true;
+        });
+
+        createBoard();
+        startNewGame();
+    </script>
+</body>
+</html>
