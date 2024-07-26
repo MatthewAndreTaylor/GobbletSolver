@@ -16,19 +16,20 @@ piece_map = {
     3: (0, 2),
     4: (0, 3),
     5: (0, 3),
-
     6: (1, 1),
     7: (1, 1),
     8: (1, 2),
     9: (1, 2),
     10: (1, 3),
-    11: (1, 3)
+    11: (1, 3),
 }
 
 # each number represents a different piece
 
+
 def get_color(piece: int) -> int:
     return piece_map.get(piece)[0]
+
 
 def get_power(piece: int) -> int:
     if piece == -1:
@@ -46,6 +47,7 @@ class Player:
                         pieces={self.pieces}
                         unused_pieces={self.unused_pieces}
                     )"""
+
 
 class GameConfig:
     def __init__(self, board: list[list[list[int]]], players: list[Player]):
@@ -70,7 +72,6 @@ class Move(NamedTuple):
     end_pos: tuple[int, int]
 
 
-
 def game_over(game: GameConfig) -> bool:
     winning_lines = [
         [(0, 0), (0, 1), (0, 2)],
@@ -80,7 +81,7 @@ def game_over(game: GameConfig) -> bool:
         [(0, 1), (1, 1), (2, 1)],
         [(0, 2), (1, 2), (2, 2)],
         [(0, 0), (1, 1), (2, 2)],
-        [(0, 2), (1, 1), (2, 0)]
+        [(0, 2), (1, 1), (2, 0)],
     ]
 
     for line in winning_lines:
@@ -88,9 +89,8 @@ def game_over(game: GameConfig) -> bool:
             return True
         if all(game.board[i][j][-1] in game.players[1].pieces for i, j in line):
             return True
-        
-    return False
 
+    return False
 
 
 def get_possible_moves(game: GameConfig, player: int) -> list[Move]:
@@ -127,8 +127,10 @@ def get_possible_moves(game: GameConfig, player: int) -> list[Move]:
 
     return moves
 
+
 def next_player(player: int) -> int:
     return 1 - player
+
 
 def play_move(game: GameConfig, player: int, move: Move) -> GameConfig:
     """
@@ -171,17 +173,19 @@ def play_move(game: GameConfig, player: int, move: Move) -> GameConfig:
     new_board[i][j].append(move.pid)
 
     new_players = [None, None]
-    new_players[player] = Player(game.players[player].pieces, game.players[player].unused_pieces - {move.pid})
+    new_players[player] = Player(
+        game.players[player].pieces, game.players[player].unused_pieces - {move.pid}
+    )
 
     player2 = next_player(player)
-    new_players[player2] = Player(game.players[player2].pieces, game.players[player2].unused_pieces)
+    new_players[player2] = Player(
+        game.players[player2].pieces, game.players[player2].unused_pieces
+    )
 
     return GameConfig(new_board, new_players)
 
 
-
 def compute_utility(game: GameConfig, player: int) -> int:
-
     # Base Tic Tac Toe score function
     player2 = next_player(player)
 
@@ -193,29 +197,73 @@ def compute_utility(game: GameConfig, player: int) -> int:
         [(0, 1), (1, 1), (2, 1)],
         [(0, 2), (1, 2), (2, 2)],
         [(0, 0), (1, 1), (2, 2)],
-        [(0, 2), (1, 1), (2, 0)]
+        [(0, 2), (1, 1), (2, 0)],
     ]
 
     # Check if a player has won
     for line in winning_lines:
-        opponent_line = all(game.board[i][j][-1] in game.players[player2].pieces for i, j in line)
+        opponent_line = all(
+            game.board[i][j][-1] in game.players[player2].pieces for i, j in line
+        )
         if opponent_line:
             return -1000
 
-        player_line = all(game.board[i][j][-1] in game.players[player].pieces for i, j in line)
+        player_line = all(
+            game.board[i][j][-1] in game.players[player].pieces for i, j in line
+        )
         if player_line:
             return 1000
-    
+
     # Check lines of 2
     player_score = 0
     opponent_score = 0
 
     for line in winning_lines:
-        player_pieces_in_line = sum(1 for i, j in line if game.board[i][j] and game.board[i][j][-1] in game.players[player].pieces)
-        opponent_pieces_in_line = sum(1 for i, j in line if game.board[i][j] and game.board[i][j][-1] in game.players[player2].pieces)
+        player_pieces_in_line = sum(
+            1
+            for i, j in line
+            if game.board[i][j] and game.board[i][j][-1] in game.players[player].pieces
+        )
+        opponent_pieces_in_line = sum(
+            1
+            for i, j in line
+            if game.board[i][j] and game.board[i][j][-1] in game.players[player2].pieces
+        )
         if opponent_pieces_in_line == 2 and player_pieces_in_line == 0:
             opponent_score += 100
         elif player_pieces_in_line == 2 and opponent_pieces_in_line == 0:
             player_score += 100
 
     return player_score - opponent_score
+
+
+def compute_utility_simple(game: GameConfig, player: int) -> int:
+    # Base Tic Tac Toe score function
+    player2 = next_player(player)
+
+    winning_lines = [
+        [(0, 0), (0, 1), (0, 2)],
+        [(1, 0), (1, 1), (1, 2)],
+        [(2, 0), (2, 1), (2, 2)],
+        [(0, 0), (1, 0), (2, 0)],
+        [(0, 1), (1, 1), (2, 1)],
+        [(0, 2), (1, 2), (2, 2)],
+        [(0, 0), (1, 1), (2, 2)],
+        [(0, 2), (1, 1), (2, 0)],
+    ]
+
+    # Check if a player has won
+    for line in winning_lines:
+        opponent_line = all(
+            game.board[i][j][-1] in game.players[player2].pieces for i, j in line
+        )
+        if opponent_line:
+            return -1000
+
+        player_line = all(
+            game.board[i][j][-1] in game.players[player].pieces for i, j in line
+        )
+        if player_line:
+            return 1000
+
+    return 0

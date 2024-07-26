@@ -74,53 +74,83 @@ function gameOver(game) {
 }
 
 function computeUtility(game, player) {
-    const player2 = next_player(player);
-  
-    const winningLines = [
-      [[0, 0], [0, 1], [0, 2]],
-      [[1, 0], [1, 1], [1, 2]],
-      [[2, 0], [2, 1], [2, 2]],
-      [[0, 0], [1, 0], [2, 0]],
-      [[0, 1], [1, 1], [2, 1]],
-      [[0, 2], [1, 2], [2, 2]],
-      [[0, 0], [1, 1], [2, 2]],
-      [[0, 2], [1, 1], [2, 0]]
-    ];
-  
-    // Check if a player has won
-    for (let line of winningLines) {
-      const opponentLine = line.every(([i, j]) => game.players[player2].pieces.includes(game.board[i][j].slice(-1)[0]));
-      if (opponentLine) {
-        return -1000;
-      }
-  
-      const playerLine = line.every(([i, j]) => game.players[player].pieces.includes(game.board[i][j].slice(-1)[0]));
-      if (playerLine) {
-        return 1000;
-      }
+  const player2 = next_player(player);
+
+  const winningLines = [
+    [[0, 0], [0, 1], [0, 2]],
+    [[1, 0], [1, 1], [1, 2]],
+    [[2, 0], [2, 1], [2, 2]],
+    [[0, 0], [1, 0], [2, 0]],
+    [[0, 1], [1, 1], [2, 1]],
+    [[0, 2], [1, 2], [2, 2]],
+    [[0, 0], [1, 1], [2, 2]],
+    [[0, 2], [1, 1], [2, 0]]
+  ];
+
+  // Check if a player has won
+  for (let line of winningLines) {
+    const opponentLine = line.every(([i, j]) => game.players[player2].pieces.includes(game.board[i][j].slice(-1)[0]));
+    if (opponentLine) {
+      return -1000;
     }
-  
-    // Check lines of 2
-    let playerScore = 0;
-    let opponentScore = 0;
-  
-    for (let line of winningLines) {
-      const playerPiecesInLine = line.reduce((count, [i, j]) => 
-        count + (game.board[i][j].length > 0 && game.players[player].pieces.includes(game.board[i][j].slice(-1)[0]) ? 1 : 0), 0
-      );
-      const opponentPiecesInLine = line.reduce((count, [i, j]) => 
-        count + (game.board[i][j].length > 0 && game.players[player2].pieces.includes(game.board[i][j].slice(-1)[0]) ? 1 : 0), 0
-      );
-  
-      if (opponentPiecesInLine === 2 && playerPiecesInLine === 0) {
-        opponentScore += 100;
-      } else if (playerPiecesInLine === 2 && opponentPiecesInLine === 0) {
-        playerScore += 100;
-      }
+
+    const playerLine = line.every(([i, j]) => game.players[player].pieces.includes(game.board[i][j].slice(-1)[0]));
+    if (playerLine) {
+      return 1000;
     }
-  
-    return playerScore - opponentScore;
   }
+
+  // Check lines of 2
+  let playerScore = 0;
+  let opponentScore = 0;
+
+  for (let line of winningLines) {
+    const playerPiecesInLine = line.reduce((count, [i, j]) => 
+      count + (game.board[i][j].length > 0 && game.players[player].pieces.includes(game.board[i][j].slice(-1)[0]) ? 1 : 0), 0
+    );
+    const opponentPiecesInLine = line.reduce((count, [i, j]) => 
+      count + (game.board[i][j].length > 0 && game.players[player2].pieces.includes(game.board[i][j].slice(-1)[0]) ? 1 : 0), 0
+    );
+
+    if (opponentPiecesInLine === 2 && playerPiecesInLine === 0) {
+      opponentScore += 100;
+    } else if (playerPiecesInLine === 2 && opponentPiecesInLine === 0) {
+      playerScore += 100;
+    }
+  }
+
+  return playerScore - opponentScore;
+}
+
+function computeUtilitySimple(game, player) {
+  const player2 = next_player(player);
+
+  const winningLines = [
+    [[0, 0], [0, 1], [0, 2]],
+    [[1, 0], [1, 1], [1, 2]],
+    [[2, 0], [2, 1], [2, 2]],
+    [[0, 0], [1, 0], [2, 0]],
+    [[0, 1], [1, 1], [2, 1]],
+    [[0, 2], [1, 2], [2, 2]],
+    [[0, 0], [1, 1], [2, 2]],
+    [[0, 2], [1, 1], [2, 0]]
+  ];
+
+  // Check if a player has won
+  for (let line of winningLines) {
+    const opponentLine = line.every(([i, j]) => game.players[player2].pieces.includes(game.board[i][j].slice(-1)[0]));
+    if (opponentLine) {
+      return -1000;
+    }
+
+    const playerLine = line.every(([i, j]) => game.players[player].pieces.includes(game.board[i][j].slice(-1)[0]));
+    if (playerLine) {
+      return 1000;
+    }
+  }
+
+  return 0;
+}
 
 
 class Move {
@@ -240,7 +270,7 @@ function alphabetaMinNode(board, color, alpha, beta, limit) {
     let bestUtility = Infinity;
   
     if (limit <= 0 || moves.length === 0) {
-      return [null, computeUtility(board, color)];
+      return [null, computeUtilitySimple(board, color)];
     }
   
     for (let move of moves) {
@@ -267,7 +297,7 @@ function alphabetaMinNode(board, color, alpha, beta, limit) {
     let bestUtility = -Infinity;
   
     if (limit <= 0 || moves.length === 0) {
-      return [null, computeUtility(board, color)];
+      return [null, computeUtilitySimple(board, color)];
     }
   
     for (let move of moves) {
