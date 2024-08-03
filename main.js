@@ -139,7 +139,7 @@ function aiMove() {
     my_turn = false;
 
     // Logic to handle the AI's move
-    const ai_selection = selectMoveAlphabeta(currentGame, 1, 4);
+    const ai_selection = selectMoveAlphabeta(currentGame, 1, 6);
     const aiMove = ai_selection[0];
     console.log(aiMove);
 
