@@ -10,6 +10,12 @@ const boardElement = document.getElementById('board');
 const orangeUnusedPieces = document.getElementById('orange-unused-pieces');
 const blueUnusedPieces = document.getElementById('blue-unused-pieces');
 const playerPieceContainers = [blueUnusedPieces, orangeUnusedPieces];
+const colorToggleButton = document.getElementById('color-toggle');
+const pieceSizes = {
+    1: 'piece-size-1',
+    2: 'piece-size-2',
+    3: 'piece-size-3'
+};
 
 const aistartButton = document.getElementById('ai-start');
 const humanstartButton = document.getElementById('human-start');
@@ -19,6 +25,32 @@ function hideButtons() {
     humanstartButton.disabled = true;
     aistartButton.style.display = 'none';
     humanstartButton.style.display = 'none';
+}
+
+function createPieceElement(piece) {
+    const pieceElement = document.createElement('img');
+    pieceElement.classList.add('piece-token', pieceSizes[getPower(piece)]);
+    pieceElement.dataset.pieceId = piece;
+    pieceElement.src = getPieceImage(piece);
+    pieceElement.alt = `Gobblet piece ${getPower(piece)}`;
+    pieceElement.draggable = false;
+    return pieceElement;
+}
+
+function getPieceImage(piece) {
+    return `game_pieces/${playerColors[getColor(piece)]}.jpg`;
+}
+
+function updateAllPieceArt() {
+    document.querySelectorAll('.piece-token').forEach((pieceElement) => {
+        const piece = parseInt(pieceElement.dataset.pieceId);
+        pieceElement.src = getPieceImage(piece);
+        pieceElement.alt = `Gobblet piece ${getPower(piece)}`;
+    });
+}
+
+function renderPiece(cell, piece) {
+    cell.replaceChildren(createPieceElement(piece));
 }
 
 aistartButton.addEventListener('click', () => {
@@ -35,6 +67,12 @@ humanstartButton.addEventListener('click', () => {
 
 let currentGame = null;
 let playerColors = ['blue', 'orange'];
+
+colorToggleButton.addEventListener('click', () => {
+    playerColors = [playerColors[1], playerColors[0]];
+    colorToggleButton.textContent = `Switch Colors: ${playerColors[0]} / ${playerColors[1]}`;
+    updateAllPieceArt();
+});
 
 let board = [
         [[-1], [-1], [-1]],
@@ -64,6 +102,7 @@ function createBoard() {
             const pieceElement = document.createElement('div');
             pieceElement.classList.add('cell');
             pieceElement.dataset.id = piece;
+            renderPiece(pieceElement, piece);
             playerPieceContainers[i].appendChild(pieceElement);
         }
     }
@@ -74,13 +113,10 @@ function updateBoard(game) {
     for (let i = 0; i < 3; i++) {
         for (let j = 0; j < 3; j++) {
             const cell = document.querySelector(`.cell[data-row='${i}'][data-col='${j}']`);
-            cell.textContent = '';
+            cell.replaceChildren();
             if (game.board[i][j].slice(-1)[0] !== -1) {
                 const piece = game.board[i][j].slice(-1)[0];
-                cell.textContent = getPower(piece);
-                cell.style.color = playerColors[getColor(piece)];
-            } else {
-                cell.style.color = 'black';
+                renderPiece(cell, piece);
             }
         }
     }
@@ -90,8 +126,7 @@ function updateBoard(game) {
         for (let piece of game.players[i].pieces) {
             const cell = document.querySelector(`.cell[data-id='${piece}']`);
             if (game.players[i].unusedPieces.includes(piece)) {
-                cell.textContent = getPower(piece);
-                cell.style.color = playerColors[i];
+                cell.replaceChildren(createPieceElement(piece));
             }
             else if (cell) {
                 cell.remove();   
@@ -122,7 +157,11 @@ let selection = null;
 let my_turn = true;
 
 blueUnusedPieces.addEventListener('click', (e) => {
-    const piece = parseInt(e.target.dataset.id);
+    const pieceCell = e.target.closest('.cell[data-id]');
+    if (!pieceCell) {
+        return;
+    }
+    const piece = parseInt(pieceCell.dataset.id);
     if (selection === null) {
         selection = [piece, null];
         const cell = document.querySelector(`.cell[data-id='${piece}']`);
@@ -152,9 +191,13 @@ function aiMove() {
 }
 
 boardElement.addEventListener('click', (e) => {
+    const boardCell = e.target.closest('.cell[data-row][data-col]');
+    if (!boardCell) {
+        return;
+    }
 
-    const row = parseInt(e.target.dataset.row);
-    const col = parseInt(e.target.dataset.col);
+    const row = parseInt(boardCell.dataset.row);
+    const col = parseInt(boardCell.dataset.col);
 
     if (!my_turn) {
         return;
