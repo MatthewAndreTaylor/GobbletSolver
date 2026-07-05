@@ -5,42 +5,46 @@
  * © 2024 Matthew Taylor. All rights reserved.
  *******************************************************/
 
-const pieceMap = new Map([
-    [0, [0, 1]],
-    [1, [0, 1]],
-    [2, [0, 2]],
-    [3, [0, 2]],
-    [4, [0, 3]],
-    [5, [0, 3]],
-    [6, [1, 1]],
-    [7, [1, 1]],
-    [8, [1, 2]],
-    [9, [1, 2]],
-    [10, [1, 3]],
-    [11, [1, 3]]
-]);
+const pieceMap = [
+    [0, 1], [0, 1], [0, 2], [0, 2], [0, 3], [0, 3],
+    [1, 1], [1, 1], [1, 2], [1, 2], [1, 3], [1, 3]
+];
+
+const winningLines = [
+  [[0, 0], [0, 1], [0, 2]],
+  [[1, 0], [1, 1], [1, 2]],
+  [[2, 0], [2, 1], [2, 2]],
+  [[0, 0], [1, 0], [2, 0]],
+  [[0, 1], [1, 1], [2, 1]],
+  [[0, 2], [1, 2], [2, 2]],
+  [[0, 0], [1, 1], [2, 2]],
+  [[0, 2], [1, 1], [2, 0]]
+];
 
 function getColor(piece) {
-    return pieceMap.get(piece)[0];
+    return pieceMap[piece][0];
 }
 
 function getPower(piece) {
     if (piece === -1) {
         return 0;
     }
-    return pieceMap.get(piece)[1];
+    return pieceMap[piece][1];
 }
 
 function next_player(player_id) {
     return 1 - player_id;
 }
 
+function peek(cell) {
+    return cell.length > 0 ? cell[cell.length - 1] : -1;
+}
+
 class Player {
-    constructor(pieces, unusedPieces) {
-      this.pieces = pieces;
+    constructor(unusedPieces) {
       this.unusedPieces = unusedPieces;
     }
-  }
+}
   
 class GameConfig {
     constructor(board, players) {
@@ -50,24 +54,19 @@ class GameConfig {
 }
 
 function gameOver(game) {
-    const winningLines = [
-        [[0, 0], [0, 1], [0, 2]],
-        [[1, 0], [1, 1], [1, 2]],
-        [[2, 0], [2, 1], [2, 2]],
-        [[0, 0], [1, 0], [2, 0]],
-        [[0, 1], [1, 1], [2, 1]],
-        [[0, 2], [1, 2], [2, 2]],
-        [[0, 0], [1, 1], [2, 2]],
-        [[0, 2], [1, 1], [2, 0]]
-    ];
-
     for (let line of winningLines) {
-        if (line.every(([i, j]) => game.players[0].pieces.includes(game.board[i][j].slice(-1)[0]))) {
-            return true;
+        let p1Wins = true;
+        let p2Wins = true;
+
+        for (let j = 0; j < 3; j++) {
+            const [r, c] = line[j];
+            const topPiece = peek(game.board[r][c]);
+            
+            if (topPiece === -1 || getColor(topPiece) !== 0) p1Wins = false;
+            if (topPiece === -1 || getColor(topPiece) !== 1) p2Wins = false;
         }
-        if (line.every(([i, j]) => game.players[1].pieces.includes(game.board[i][j].slice(-1)[0]))) {
-            return true;
-        }
+
+        if (p1Wins || p2Wins) return true;
     }
 
     return false;
@@ -76,77 +75,20 @@ function gameOver(game) {
 function computeUtility(game, player) {
   const player2 = next_player(player);
 
-  const winningLines = [
-    [[0, 0], [0, 1], [0, 2]],
-    [[1, 0], [1, 1], [1, 2]],
-    [[2, 0], [2, 1], [2, 2]],
-    [[0, 0], [1, 0], [2, 0]],
-    [[0, 1], [1, 1], [2, 1]],
-    [[0, 2], [1, 2], [2, 2]],
-    [[0, 0], [1, 1], [2, 2]],
-    [[0, 2], [1, 1], [2, 0]]
-  ];
-
   // Check if a player has won
   for (let line of winningLines) {
-    const opponentLine = line.every(([i, j]) => game.players[player2].pieces.includes(game.board[i][j].slice(-1)[0]));
-    if (opponentLine) {
-      return -1000;
-    }
-
-    const playerLine = line.every(([i, j]) => game.players[player].pieces.includes(game.board[i][j].slice(-1)[0]));
-    if (playerLine) {
-      return 1000;
-    }
-  }
-
-  // Check lines of 2
-  let playerScore = 0;
-  let opponentScore = 0;
-
-  for (let line of winningLines) {
-    const playerPiecesInLine = line.reduce((count, [i, j]) => 
-      count + (game.board[i][j].length > 0 && game.players[player].pieces.includes(game.board[i][j].slice(-1)[0]) ? 1 : 0), 0
-    );
-    const opponentPiecesInLine = line.reduce((count, [i, j]) => 
-      count + (game.board[i][j].length > 0 && game.players[player2].pieces.includes(game.board[i][j].slice(-1)[0]) ? 1 : 0), 0
-    );
-
-    if (opponentPiecesInLine === 2 && playerPiecesInLine === 0) {
-      opponentScore += 100;
-    } else if (playerPiecesInLine === 2 && opponentPiecesInLine === 0) {
-      playerScore += 100;
-    }
-  }
-
-  return playerScore - opponentScore;
-}
-
-function computeUtilitySimple(game, player) {
-  const player2 = next_player(player);
-
-  const winningLines = [
-    [[0, 0], [0, 1], [0, 2]],
-    [[1, 0], [1, 1], [1, 2]],
-    [[2, 0], [2, 1], [2, 2]],
-    [[0, 0], [1, 0], [2, 0]],
-    [[0, 1], [1, 1], [2, 1]],
-    [[0, 2], [1, 2], [2, 2]],
-    [[0, 0], [1, 1], [2, 2]],
-    [[0, 2], [1, 1], [2, 0]]
-  ];
-
-  // Check if a player has won
-  for (let line of winningLines) {
-    const opponentLine = line.every(([i, j]) => game.players[player2].pieces.includes(game.board[i][j].slice(-1)[0]));
-    if (opponentLine) {
-      return -1000;
-    }
-
-    const playerLine = line.every(([i, j]) => game.players[player].pieces.includes(game.board[i][j].slice(-1)[0]));
-    if (playerLine) {
-      return 1000;
-    }
+    let p1Count = 0;
+    let p2Count = 0;
+    for (let j = 0; j < 3; j++) {
+          const [r, c] = line[j];
+          const topPiece = peek(game.board[r][c]);
+          if (topPiece !== -1) {
+              if (getColor(topPiece) === player) p1Count++;
+              if (getColor(topPiece) === player2) p2Count++;
+          }
+      }
+    if (p2Count === 3) return -1000;
+    if (p1Count === 3) return 1000;
   }
 
   return 0;
@@ -162,10 +104,8 @@ class Move {
 }
 
 function posEq(a, b) {
-  if (a === null || b === null) {
-    return a === b;
-  }
-  return (a.length === b.length && a.every((v, i) => v === b[i]));
+    if (a === null || b === null) return a === b;
+    return a[0] === b[0] && a[1] === b[1];
 }
 
 function moveExists(movesList, moveInstance) {
@@ -178,61 +118,58 @@ function moveExists(movesList, moveInstance) {
 
 
 function getPossibleMoves(game, player_id) {
-  const moves = []
+  const moves = [];
 
-  if (gameOver(game)){
-      return moves
-  }
+  if (gameOver(game)) return moves;
 
-  const my_piece_locations = new Map();
-  for (let i = 0; i < 3; i++){
-      for (let j = 0; j < 3; j++){
-          let pid = game.board[i][j].slice(-1)[0];
-          if (game.players[player_id].pieces.includes(pid)){
-              my_piece_locations.set(pid, [i, j]);
-          }
+  const player = game.players[player_id];
+  const topPieces = new Array(9);
+  const cellPowers = new Array(9);
+  const myPieceIndices = [];
+
+  let cellIndex = 0;
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      const pid = peek(game.board[i][j]);
+      topPieces[cellIndex] = pid;
+      cellPowers[cellIndex] = (pid === -1) ? -1 : getPower(pid);
+      if (pid !== -1 && getColor(pid) === player_id) {
+          myPieceIndices.push(cellIndex);
       }
+      cellIndex++;
+    }
   }
 
-  const available_pieces = [...game.players[player_id].unusedPieces];
+  for (let i = 0; i < player.unusedPieces.length; i++) {
+    const piece = player.unusedPieces[i];
+    const piecePower = getPower(piece);
 
-  for (let piece of my_piece_locations.keys()){
-      available_pieces.push(piece);
-  }
-
-  for (let i = 0; i < 3; i++){
-      for (let j = 0; j < 3; j++){
-          for (let piece of available_pieces){
-              if (game.board[i][j].slice(-1)[0] == -1){
-                  if (game.players[player_id].unusedPieces.includes(piece)){
-                      moves.push(new Move(piece, null, [i, j]));
-                  } else {
-                      moves.push(new Move(piece, my_piece_locations.get(piece), [i, j]));
-                  }
-              } else if (getPower(piece) > getPower(game.board[i][j].slice(-1)[0])){
-                  if (game.players[player_id].unusedPieces.includes(piece)){
-                      moves.push(new Move(piece, null, [i, j]));
-                  } else {
-                      moves.push(new Move(piece, my_piece_locations.get(piece), [i, j]));
-                  }
-              }
-          }
+    for (let c = 0; c < 9; c++) {
+      if (topPieces[c] === -1 || piecePower > cellPowers[c]) {
+        moves.push(new Move(piece, null, [Math.floor(c / 3), c % 3]));
       }
+    }
   }
 
-  return moves
+  for (let i = 0; i < myPieceIndices.length; i++) {
+    const startIndex = myPieceIndices[i];
+    const piece = topPieces[startIndex];
+    const piecePower = cellPowers[startIndex];
+    const startPos = [Math.floor(startIndex / 3), startIndex % 3];
+
+    for (let c = 0; c < 9; c++) {
+      if (c === startIndex) continue; // Skip current position
+      if (topPieces[c] === -1 || piecePower > cellPowers[c]) {
+        moves.push(new Move(piece, startPos, [Math.floor(c / 3), c % 3]));
+      }
+    }
+  }
+
+  return moves;
 }
 
-
-
 function play_move(game, player_id, move) {
-    let new_board = [];
-    for (let i = 0; i < 3; i++){
-        new_board.push([]);
-        for (let j = 0; j < 3; j++){
-            new_board[i].push(Array.from(game.board[i][j]));
-        }
-      }
+    const new_board = game.board.map(row => row.map(cell => [...cell]));
 
     if (move.start_pos !== null){
         const [x, y] = move.start_pos;
@@ -240,35 +177,28 @@ function play_move(game, player_id, move) {
     }
 
     const [i, j] = move.end_pos;
-    new_board[i][j].push(move.pid)
+    new_board[i][j].push(move.pid);
 
-    let new_players = [null, null]
+    let new_players = [null, null];
+    const playerUnusedPieces = game.players[player_id].unusedPieces.filter(item => item !== move.pid);
 
-    let playerUnusedPieces = game.players[player_id].unusedPieces.filter(function(item) {
-        return item !== move.pid
-    })
+    new_players[player_id] = new Player(playerUnusedPieces);
 
-    new_players[player_id] = new Player(Array.from(game.players[player_id].pieces), playerUnusedPieces)
+    let player2_id = next_player(player_id);
+    new_players[player2_id] = new Player(Array.from(game.players[player2_id].unusedPieces));
 
-    let player2_id = next_player(player_id)
-    new_players[player2_id] = new Player(Array.from(game.players[player2_id].pieces), Array.from(game.players[player2_id].unusedPieces));
-
-    return new GameConfig(new_board, new_players)
+    return new GameConfig(new_board, new_players);
 }
-
-
-
-
 
 // Solvers
 function alphabetaMinNode(board, color, alpha, beta, limit) {
     const nextCol = next_player(color);
     const moves = getPossibleMoves(board, nextCol);
-    let bestMove = [0, 0];
+    let bestMove = null;
     let bestUtility = Infinity;
   
     if (limit <= 0 || moves.length === 0) {
-      return [null, computeUtilitySimple(board, color)];
+      return [null, computeUtility(board, color)];
     }
   
     for (let move of moves) {
@@ -291,11 +221,11 @@ function alphabetaMinNode(board, color, alpha, beta, limit) {
   
   function alphabetaMaxNode(board, color, alpha, beta, limit) {
     const moves = getPossibleMoves(board, color);
-    let bestMove = [0, 0];
+    let bestMove = null;
     let bestUtility = -Infinity;
   
     if (limit <= 0 || moves.length === 0) {
-      return [null, computeUtilitySimple(board, color)];
+      return [null, computeUtility(board, color)];
     }
   
     for (let move of moves) {

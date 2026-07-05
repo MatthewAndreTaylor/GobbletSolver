@@ -114,23 +114,24 @@ function updateBoard(game) {
         for (let j = 0; j < 3; j++) {
             const cell = document.querySelector(`.cell[data-row='${i}'][data-col='${j}']`);
             cell.replaceChildren();
-            if (game.board[i][j].slice(-1)[0] !== -1) {
-                const piece = game.board[i][j].slice(-1)[0];
-                renderPiece(cell, piece);
+            const topPiece = peek(game.board[i][j]); 
+            
+            if (topPiece !== -1) {
+                renderPiece(cell, topPiece);
             }
         }
     }
 
-    // Each player has a list unused pieces
-    for (let i = 0; i < 2; i++) {
-        for (let piece of game.players[i].pieces) {
-            const cell = document.querySelector(`.cell[data-id='${piece}']`);
-            if (game.players[i].unusedPieces.includes(piece)) {
-                cell.replaceChildren(createPieceElement(piece));
-            }
-            else if (cell) {
-                cell.remove();   
-            }
+    for (let piece = 0; piece < 12; piece++) {
+        const cell = document.querySelector(`.cell[data-id='${piece}']`);
+        if (!cell) continue;
+        const isUnused = game.players[0].unusedPieces.includes(piece) || 
+                         game.players[1].unusedPieces.includes(piece);
+
+        if (isUnused) {
+            cell.replaceChildren(createPieceElement(piece));
+        } else {
+            cell.remove();
         }
     }
 
@@ -177,11 +178,18 @@ blueUnusedPieces.addEventListener('click', (e) => {
 function aiMove() {
     my_turn = false;
 
+    // start a timer
+    const startTime = Date.now();
+
     let depth_limit = 5; // Set the depth for the AI search
 
     // Logic to handle the AI's move
     const ai_selection = selectMoveAlphabeta(currentGame, 1, depth_limit);
     const aiMove = ai_selection[0];
+
+    const endTime = Date.now();
+    const timeTaken = endTime - startTime;
+    console.log(`AI move computed in ${timeTaken} ms`);
     console.log(aiMove);
 
     console.log(ai_selection[1]);
@@ -206,7 +214,7 @@ boardElement.addEventListener('click', (e) => {
     }
 
     if (selection == null) {
-        let pid = currentGame.board[row][col].slice(-1)[0];
+        let pid = peek(currentGame.board[row][col]);
         if (pid in currentGame.players[0].pieces) {
             const cell = document.querySelector(`.cell[data-row='${row}'][data-col='${col}']`);
             cell.style.backgroundColor = 'lightyellow';
