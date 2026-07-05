@@ -176,8 +176,6 @@ function moveExists(movesList, moveInstance) {
     );
 }
 
-const test_pieces = [6,7,8,9,10,11];
-
 
 function getPossibleMoves(game, player_id) {
   const moves = []

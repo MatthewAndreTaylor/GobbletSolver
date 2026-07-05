@@ -177,8 +177,10 @@ blueUnusedPieces.addEventListener('click', (e) => {
 function aiMove() {
     my_turn = false;
 
+    let depth_limit = 5; // Set the depth for the AI search
+
     // Logic to handle the AI's move
-    const ai_selection = selectMoveAlphabeta(currentGame, 1, 4);
+    const ai_selection = selectMoveAlphabeta(currentGame, 1, depth_limit);
     const aiMove = ai_selection[0];
     console.log(aiMove);
 
