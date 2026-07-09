@@ -49,9 +49,6 @@ def get_power(piece: int) -> int:
     return piece_map[piece][1]
 
 
-def piece_belongs_to_player(piece: int, player: int) -> bool:
-    return piece != -1 and get_color(piece) == player
-
 class Player:
     def __init__(self, unused_pieces: frozenset[int]):
         self.unused_pieces = unused_pieces
@@ -87,9 +84,9 @@ class Move(NamedTuple):
 
 def game_over(game: GameConfig) -> bool:
     for line in winning_lines:
-        if all(piece_belongs_to_player(game.board[i][j][-1], 0) for i, j in line):
+        if all(belongs_to_player(game.board[i][j][-1], 0) for i, j in line):
             return True
-        if all(piece_belongs_to_player(game.board[i][j][-1], 1) for i, j in line):
+        if all(belongs_to_player(game.board[i][j][-1], 1) for i, j in line):
             return True
 
     return False
@@ -97,34 +94,34 @@ def game_over(game: GameConfig) -> bool:
 
 def get_possible_moves(game: GameConfig, player: int) -> list[Move]:
     moves = []
-
+    
     if game_over(game):
         return moves
 
-    my_pieces_ontop = set()
-    my_piece_locations = {}
+    my_on_board = []
+    target_cells = []
 
     for i in range(3):
         for j in range(3):
-            piece = game.board[i][j][-1]
-            if piece_belongs_to_player(piece, player):
-                my_pieces_ontop.add(piece)
-                my_piece_locations[piece] = (i, j)
+            target_piece = game.board[i][j][-1]
+            t_power = get_power(target_piece)
+            target_cells.append((i, j, t_power))
 
+            if target_piece != -1 and belongs_to_player(target_piece, player):
+                my_on_board.append((target_piece, t_power, i, j))
+
+    # Pieces that are unused: Generate moves
     for piece in game.players[player].unused_pieces:
-        for i in range(3):
-            for j in range(3):
-                target_piece = game.board[i][j][-1]
-                if target_piece == -1 or get_power(piece) > get_power(target_piece):
-                    moves.append(Move(piece, None, (i, j)))
+        p_power = get_power(piece)
+        for i, j, t_power in target_cells:
+            if p_power > t_power:
+                moves.append(Move(piece, None, (i, j)))
 
-
-    for piece in my_pieces_ontop:
-        for i in range(3):
-            for j in range(3):
-                target_piece = game.board[i][j][-1]
-                if (i, j) != my_piece_locations[piece] and (target_piece == -1 or get_power(piece) > get_power(target_piece)):
-                    moves.append(Move(piece, my_piece_locations[piece], (i, j)))
+    # Pieces already on the board: Generate moves
+    for piece, p_power, p_i, p_j in my_on_board:
+        for i, j, t_power in target_cells:
+            if (i != p_i or j != p_j) and p_power > t_power:
+                moves.append(Move(piece, (p_i, p_j), (i, j)))
 
     return moves
 
@@ -132,11 +129,16 @@ def get_possible_moves(game: GameConfig, player: int) -> list[Move]:
 def next_player(player: int) -> int:
     return 1 - player
 
+def belongs_to_player(piece: int, player: int) -> bool:
+    if piece == -1:
+        return False
+    return get_color(piece) == player
+
 
 def play_move(game: GameConfig, player: int, move: Move) -> GameConfig:
     """
-    >>> player1 = Player(frozenset([0, 1, 2, 3, 4, 5]))
-    >>> player2 = Player(frozenset([6, 7, 8, 9, 10, 11]))
+    >>> player1 = Player(frozenset([0, 1, 2, 3, 4, 5]), frozenset([0, 1, 2, 3, 4, 5]))
+    >>> player2 = Player(frozenset([6, 7, 8, 9, 10, 11]), frozenset([6, 7, 8, 9, 10, 11]))
     >>> game = GameConfig([[[-1] for i in range(3)] for j in range(3)], [player1, player2])
     >>> current_player = 0
     >>> move = Move(0, None, (0, 0))
@@ -169,8 +171,6 @@ def play_move(game: GameConfig, player: int, move: Move) -> GameConfig:
     if move.start_pos is not None:
         x, y = move.start_pos
         new_board[x][y].pop()
-        if not new_board[x][y]:
-            new_board[x][y].append(-1)
 
     i, j = move.end_pos
     new_board[i][j].append(move.pid)
@@ -191,17 +191,66 @@ def compute_utility_simple(game: GameConfig, player: int) -> int:
     # Check if a player has won
     for line in winning_lines:
         opponent_line = all(
-            piece_belongs_to_player(game.board[i][j][-1], player2)
-            for i, j in line
+            belongs_to_player(game.board[i][j][-1], player2) for i, j in line
         )
         if opponent_line:
             return -1000
 
         player_line = all(
-            piece_belongs_to_player(game.board[i][j][-1], player)
-            for i, j in line
+            belongs_to_player(game.board[i][j][-1], player) for i, j in line
         )
         if player_line:
             return 1000
 
     return 0
+
+
+def alphabeta_min_node(board, color, alpha, beta, limit):
+    next_col = next_player(color)
+    moves = get_possible_moves(board, next_col)
+    best_move = (0, 0)
+    best_utility = float("inf")
+
+    if limit <= 0 or not moves:
+        return None, compute_utility_simple(board, color)
+
+    for move in moves:
+        new_board = play_move(board, next_col, move)
+        _, utility = alphabeta_max_node(new_board, color, alpha, beta, limit - 1)
+
+        if utility < best_utility:
+            best_move = move
+            best_utility = utility
+
+        beta = min(beta, utility)
+        if beta <= alpha:
+            break
+
+    return best_move, best_utility
+
+
+def alphabeta_max_node(board, color, alpha, beta, limit):
+    moves = get_possible_moves(board, color)
+    best_move = (0, 0)
+    best_utility = float("-inf")
+
+    if limit <= 0 or not moves:
+        return None, compute_utility_simple(board, color)
+
+    for move in moves:
+        new_board = play_move(board, color, move)
+        _, utility = alphabeta_min_node(new_board, color, alpha, beta, limit - 1)
+
+        if utility > best_utility:
+            best_move = move
+            best_utility = utility
+
+        alpha = max(alpha, utility)
+        if beta <= alpha:
+            break
+
+    return best_move, best_utility
+
+
+def select_move_alphabeta(game_config: GameConfig, color, limit):
+    return alphabeta_max_node(game_config, color, float("-inf"), float("inf"), limit)

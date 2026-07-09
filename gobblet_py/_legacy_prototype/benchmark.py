@@ -4,11 +4,8 @@ from __future__ import annotations
 
 from timeit import timeit
 
-from base.main import select_move_alphabeta
-from base.shared import GameConfig, Player
-
-# do the same for bitboards
-
+from main import select_move_alphabeta
+from shared import GameConfig, Player
 
 
 

@@ -116,7 +116,7 @@ class GameGUI:
 
         for i in range(3):
             for j in range(3):
-                pid = top_piece(self.game.board[i][j])
+                pid = self.game.board[i][j][-1]
                 if pid != -1 and get_color(pid) == self.current_player:
                     self.buttons[i][j].configure(
                         command=partial(self.make_selection, (pid, (i, j)))
@@ -166,7 +166,7 @@ class GameGUI:
     def update_board(self):
         for i in range(3):
             for j in range(3):
-                pid = top_piece(self.game.board[i][j])
+                pid = self.game.board[i][j][-1]
 
                 if pid == -1:
                     self.buttons[i][j].configure(text="")
