@@ -18,7 +18,7 @@ def alphabeta_min_node(board, color, alpha, beta, limit):
     best_utility = float("inf")
 
     if limit <= 0 or not moves:
-        return None, compute_utility_simple(board, color)
+        return None, get_score(board, color)
 
     for move in moves:
         new_board = play_move(board, next_col, move)
@@ -41,7 +41,7 @@ def alphabeta_max_node(board, color, alpha, beta, limit):
     best_utility = float("-inf")
 
     if limit <= 0 or not moves:
-        return None, compute_utility_simple(board, color)
+        return None, get_score(board, color)
 
     for move in moves:
         new_board = play_move(board, color, move)
@@ -175,10 +175,10 @@ class GameGUI:
                     power = get_power(pid)
                     self.buttons[i][j].configure(text=f"{color}-{power}")
 
-        if compute_utility_simple(self.game, self.current_player) > 0:
+        if get_score(self.game, self.current_player) > 0:
             messagebox.showinfo("Game Over", f"Player {self.current_player} wins!")
             self.root.destroy()
-        elif compute_utility_simple(self.game, self.current_player) < 0:
+        elif get_score(self.game, self.current_player) < 0:
             messagebox.showinfo(
                 "Game Over", f"Player {next_player(self.current_player)} wins!"
             )

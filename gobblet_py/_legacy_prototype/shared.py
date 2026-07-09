@@ -5,7 +5,6 @@
  * © 2024 Matthew Taylor. All rights reserved.
 """
 
-
 from __future__ import annotations
 from typing import NamedTuple
 
@@ -28,15 +27,15 @@ piece_map = [
 
 
 winning_lines = [
-        [(0, 0), (0, 1), (0, 2)],
-        [(1, 0), (1, 1), (1, 2)],
-        [(2, 0), (2, 1), (2, 2)],
-        [(0, 0), (1, 0), (2, 0)],
-        [(0, 1), (1, 1), (2, 1)],
-        [(0, 2), (1, 2), (2, 2)],
-        [(0, 0), (1, 1), (2, 2)],
-        [(0, 2), (1, 1), (2, 0)],
-    ]
+    [(0, 0), (0, 1), (0, 2)],
+    [(1, 0), (1, 1), (1, 2)],
+    [(2, 0), (2, 1), (2, 2)],
+    [(0, 0), (1, 0), (2, 0)],
+    [(0, 1), (1, 1), (2, 1)],
+    [(0, 2), (1, 2), (2, 2)],
+    [(0, 0), (1, 1), (2, 2)],
+    [(0, 2), (1, 1), (2, 0)],
+]
 
 
 def get_color(piece: int) -> int:
@@ -54,9 +53,7 @@ class Player:
         self.unused_pieces = unused_pieces
 
     def __repr__(self) -> str:
-        return f"""Player(
-                        unused_pieces={self.unused_pieces}
-                    )"""
+        return f"""Player(unused_pieces={self.unused_pieces})"""
 
 
 class GameConfig:
@@ -65,17 +62,14 @@ class GameConfig:
         self.players = players
 
     def __repr__(self) -> str:
-        return f"""GameConfig(
-                        board={self.board}
-                        players={self.players}
-                    )"""
+        return f"""GameConfig(board={self.board} players={self.players})"""
 
 
 class Move(NamedTuple):
     pid: int | None  # Each move has an associated piece
 
-    # Each move has a starting position (row, col) if the piece is already on the board
-    # If the piece is not on the board, start_pos is None
+    # Each move has a starting position (row, col) if the piece is already on
+    # the board If the piece is not on the board, start_pos is None
     start_pos: tuple[int, int] | None
 
     # Each move has an ending position (row, col)
@@ -94,7 +88,7 @@ def game_over(game: GameConfig) -> bool:
 
 def get_possible_moves(game: GameConfig, player: int) -> list[Move]:
     moves = []
-    
+
     if game_over(game):
         return moves
 
@@ -129,6 +123,7 @@ def get_possible_moves(game: GameConfig, player: int) -> list[Move]:
 def next_player(player: int) -> int:
     return 1 - player
 
+
 def belongs_to_player(piece: int, player: int) -> bool:
     if piece == -1:
         return False
@@ -137,8 +132,8 @@ def belongs_to_player(piece: int, player: int) -> bool:
 
 def play_move(game: GameConfig, player: int, move: Move) -> GameConfig:
     """
-    >>> player1 = Player(frozenset([0, 1, 2, 3, 4, 5]), frozenset([0, 1, 2, 3, 4, 5]))
-    >>> player2 = Player(frozenset([6, 7, 8, 9, 10, 11]), frozenset([6, 7, 8, 9, 10, 11]))
+    >>> player1 = Player(frozenset([0, 1, 2, 3, 4, 5]))
+    >>> player2 = Player(frozenset([6, 7, 8, 9, 10, 11]))
     >>> game = GameConfig([[[-1] for i in range(3)] for j in range(3)], [player1, player2])
     >>> current_player = 0
     >>> move = Move(0, None, (0, 0))
@@ -164,7 +159,7 @@ def play_move(game: GameConfig, player: int, move: Move) -> GameConfig:
     >>> move = Move(2, None, (2, 0))
     >>> game_over = play_move(new_game, current_player, move)
     >>> get_score(game_over, current_player)
-    100
+    1000
     """
     new_board = [[stack.copy() for stack in row] for row in game.board]
 
@@ -176,7 +171,8 @@ def play_move(game: GameConfig, player: int, move: Move) -> GameConfig:
     new_board[i][j].append(move.pid)
 
     new_players = [None, None]
-    new_players[player] = Player(game.players[player].unused_pieces - {move.pid})
+    new_players[player] = Player(
+        game.players[player].unused_pieces - {move.pid})
 
     player2 = next_player(player)
     new_players[player2] = Player(game.players[player2].unused_pieces)
@@ -184,7 +180,7 @@ def play_move(game: GameConfig, player: int, move: Move) -> GameConfig:
     return GameConfig(new_board, new_players)
 
 
-def compute_utility_simple(game: GameConfig, player: int) -> int:
+def get_score(game: GameConfig, player: int) -> int:
     # Base Tic Tac Toe score function
     player2 = next_player(player)
 
@@ -208,15 +204,15 @@ def compute_utility_simple(game: GameConfig, player: int) -> int:
 def alphabeta_min_node(board, color, alpha, beta, limit):
     next_col = next_player(color)
     moves = get_possible_moves(board, next_col)
-    best_move = (0, 0)
+    best_move = None
     best_utility = float("inf")
 
     if limit <= 0 or not moves:
-        return None, compute_utility_simple(board, color)
+        return None, get_score(board, color)
 
     for move in moves:
         new_board = play_move(board, next_col, move)
-        _, utility = alphabeta_max_node(new_board, color, alpha, beta, limit - 1)
+        _, utility = alphabeta_max_node(new_board, color, alpha, beta, limit-1)
 
         if utility < best_utility:
             best_move = move
@@ -231,15 +227,15 @@ def alphabeta_min_node(board, color, alpha, beta, limit):
 
 def alphabeta_max_node(board, color, alpha, beta, limit):
     moves = get_possible_moves(board, color)
-    best_move = (0, 0)
+    best_move = None
     best_utility = float("-inf")
 
     if limit <= 0 or not moves:
-        return None, compute_utility_simple(board, color)
+        return None, get_score(board, color)
 
     for move in moves:
         new_board = play_move(board, color, move)
-        _, utility = alphabeta_min_node(new_board, color, alpha, beta, limit - 1)
+        _, utility = alphabeta_min_node(new_board, color, alpha, beta, limit-1)
 
         if utility > best_utility:
             best_move = move
@@ -253,4 +249,5 @@ def alphabeta_max_node(board, color, alpha, beta, limit):
 
 
 def select_move_alphabeta(game_config: GameConfig, color, limit):
-    return alphabeta_max_node(game_config, color, float("-inf"), float("inf"), limit)
+    return alphabeta_max_node(game_config, color, float("-inf"), float("inf"),
+                              limit)
