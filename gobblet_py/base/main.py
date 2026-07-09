@@ -70,12 +70,8 @@ class GameGUI:
 
         starting_board = [[[-1], [-1], [-1]], [[-1], [-1], [-1]], [[-1], [-1], [-1]]]
 
-        player1 = Player(
-            frozenset([0, 1, 2, 3, 4, 5]), frozenset([0, 1, 2, 3, 4, 5])
-        )  # player 1 has pieces 0-5
-        player2 = Player(
-            frozenset([6, 7, 8, 9, 10, 11]), frozenset([6, 7, 8, 9, 10, 11])
-        )  # player 2 has pieces 6-11
+        player1 = Player(frozenset([0, 1, 2, 3, 4, 5]))  # player 1 has pieces 0-5
+        player2 = Player(frozenset([6, 7, 8, 9, 10, 11]))  # player 2 has pieces 6-11
         self.game = GameConfig(starting_board, [player1, player2])
         self.current_player = 0
 
@@ -120,8 +116,8 @@ class GameGUI:
 
         for i in range(3):
             for j in range(3):
-                pid = self.game.board[i][j][-1]
-                if pid in self.game.players[self.current_player].pieces:
+                pid = top_piece(self.game.board[i][j])
+                if pid != -1 and get_color(pid) == self.current_player:
                     self.buttons[i][j].configure(
                         command=partial(self.make_selection, (pid, (i, j)))
                     )
@@ -170,7 +166,7 @@ class GameGUI:
     def update_board(self):
         for i in range(3):
             for j in range(3):
-                pid = self.game.board[i][j][-1]
+                pid = top_piece(self.game.board[i][j])
 
                 if pid == -1:
                     self.buttons[i][j].configure(text="")
@@ -179,10 +175,10 @@ class GameGUI:
                     power = get_power(pid)
                     self.buttons[i][j].configure(text=f"{color}-{power}")
 
-        if compute_utility_simple(self.game, self.current_player) == 1000:
+        if compute_utility_simple(self.game, self.current_player) > 0:
             messagebox.showinfo("Game Over", f"Player {self.current_player} wins!")
             self.root.destroy()
-        elif compute_utility_simple(self.game, self.current_player) == -1000:
+        elif compute_utility_simple(self.game, self.current_player) < 0:
             messagebox.showinfo(
                 "Game Over", f"Player {next_player(self.current_player)} wins!"
             )
