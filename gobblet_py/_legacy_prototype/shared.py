@@ -201,6 +201,16 @@ def get_score(game: GameConfig, player: int) -> int:
     return 0
 
 
+def get_winner(game: GameConfig) -> int | None:
+    for line in winning_lines:
+        if all(belongs_to_player(game.board[i][j][-1], 0) for i, j in line):
+            return 0
+        if all(belongs_to_player(game.board[i][j][-1], 1) for i, j in line):
+            return 1
+
+    return None
+
+
 def alphabeta_min_node(board, color, alpha, beta, limit):
     next_col = next_player(color)
     moves = get_possible_moves(board, next_col)

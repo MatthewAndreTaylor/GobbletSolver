@@ -94,12 +94,13 @@ class GameGUI:
                 self.game = play_move(self.game, self.current_player, move)
                 self.update_board()
                 self.current_player = next_player(self.current_player)
+                self.selection = None
                 self.update_selection()
 
                 if self.current_player == 1 and get_winner(self.game) is None:
                     print("Robot says to move: ")
                     best_move, score = select_move_alphabeta(
-                        self.game, self.current_player, 5
+                        self.game, self.current_player, 8
                     )
                     if best_move:
                         print(
@@ -108,6 +109,12 @@ class GameGUI:
                             "power: ", best_move.size + 1
                         )
                         print("Score: ", score)
+                        self.game = play_move(self.game, self.current_player, best_move)
+                        self.update_board()
+
+                        if get_winner(self.game) is None:
+                            self.current_player = next_player(self.current_player)
+                            self.update_selection()
 
     def update_board(self):
         for sq in range(9):

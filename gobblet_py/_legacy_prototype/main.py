@@ -144,24 +144,32 @@ class GameGUI:
 
                 self.update_board()
                 self.current_player = next_player(self.current_player)
+                self.selection = None
                 self.update_selection()
 
                 if self.current_player == 1:
                     print("Robot says to move: ")
 
                     best_move, score = select_move_alphabeta(
-                        self.game, self.current_player, 4
+                        self.game, self.current_player, 5
                     )
 
-                    print(
-                        "Best Move: ",
-                        best_move,
-                        "color: ",
-                        get_color(best_move.pid),
-                        "power: ",
-                        get_power(best_move.pid),
-                    )
-                    print("Score: ", score)
+                    if best_move:
+                        print(
+                            "Best Move: ",
+                            best_move,
+                            "color: ",
+                            get_color(best_move.pid),
+                            "power: ",
+                            get_power(best_move.pid),
+                        )
+                        print("Score: ", score)
+                        self.game = play_move(self.game, self.current_player, best_move)
+                        self.update_board()
+
+                        if get_winner(self.game) is None:
+                            self.current_player = next_player(self.current_player)
+                            self.update_selection()
 
     def update_board(self):
         for i in range(3):
