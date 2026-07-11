@@ -1,8 +1,6 @@
 """
  * Author: Matthew Taylor
  * Created: 2024
- *
- * © 2024 Matthew Taylor. All rights reserved.
 """
 
 from __future__ import annotations
@@ -259,5 +257,4 @@ def alphabeta_max_node(board, color, alpha, beta, limit):
 
 
 def select_move_alphabeta(game_config: GameConfig, color, limit):
-    return alphabeta_max_node(game_config, color, float("-inf"), float("inf"),
-                              limit)
+    return alphabeta_max_node(game_config, color, float("-inf"), float("inf"), limit)

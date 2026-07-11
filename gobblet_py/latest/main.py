@@ -1,19 +1,29 @@
+"""
+ * Author: Matthew Taylor
+ * Created: 2024
+"""
+
+import sys
+from datetime import datetime
+from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 from functools import partial
 from shared import *
 
 class GameGUI:
-    def __init__(self, root):
+    def __init__(self, root, starting_player=0):
         self.root = root
         self.root.title("Gobblet Game")
         self.selection = None
+        self.move_log_path = Path(__file__).with_name(f"move_history_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log")
+        self.move_log_path.write_text("", encoding="utf-8")
         self.game = GameConfig(
             0, 0, 0,  
             0, 0, 0,  
             (2, 2, 2), (2, 2, 2)
         )
-        self.current_player = 0
+        self.current_player = starting_player
         self.buttons = [[None for _ in range(3)] for _ in range(3)]
         
         self.create_board()
@@ -36,6 +46,14 @@ class GameGUI:
         self.piece_frame = tk.Frame(self.root)
         self.piece_frame.grid(row=3, column=0, columnspan=3)
         self.update_selection()
+        
+        # If AI starts first, make its move
+        if self.current_player == 1 and get_winner(self.game) is None:
+            self.root.after(500, self.ai_move)
+
+    def record_move(self, player, move):
+        with self.move_log_path.open("a", encoding="utf-8") as log_file:
+            log_file.write(f"player={player} | move={move!r}\n")
 
     def update_selection(self):
         for widget in self.piece_frame.winfo_children():
@@ -92,29 +110,35 @@ class GameGUI:
 
             if move in get_possible_moves(self.game, self.current_player):
                 self.game = play_move(self.game, self.current_player, move)
+                self.record_move(self.current_player, move)
                 self.update_board()
                 self.current_player = next_player(self.current_player)
                 self.selection = None
                 self.update_selection()
 
                 if self.current_player == 1 and get_winner(self.game) is None:
-                    print("Robot says to move: ")
-                    best_move, score = select_move_alphabeta(
-                        self.game, self.current_player, 8
-                    )
-                    if best_move:
-                        print(
-                            "Best Move: ", best_move,
-                            "color: ", self.current_player,
-                            "power: ", best_move.size + 1
-                        )
-                        print("Score: ", score)
-                        self.game = play_move(self.game, self.current_player, best_move)
-                        self.update_board()
+                    self.root.after(500, self.ai_move)
 
-                        if get_winner(self.game) is None:
-                            self.current_player = next_player(self.current_player)
-                            self.update_selection()
+    def ai_move(self):
+        if self.current_player == 1 and get_winner(self.game) is None:
+            print("Robot says to move: ")
+            best_move, score = select_move_alphabeta(
+                self.game, self.current_player, 12
+            )
+            if best_move:
+                print(
+                    "Best Move: ", best_move,
+                    "color: ", self.current_player,
+                    "power: ", best_move.size + 1
+                )
+                print("Score: ", score)
+                self.game = play_move(self.game, self.current_player, best_move)
+                self.record_move(self.current_player, best_move)
+                self.update_board()
+
+                if get_winner(self.game) is None:
+                    self.current_player = next_player(self.current_player)
+                    self.update_selection()
 
     def update_board(self):
         for sq in range(9):
@@ -133,6 +157,14 @@ class GameGUI:
             self.root.destroy()
 
 if __name__ == "__main__":
+    starting_player = 0
+    if len(sys.argv) > 1:
+        try:
+            starting_player = int(sys.argv[1])
+        except ValueError:
+            print(f"Error: Starting player must be an integer, got '{sys.argv[1]}'")
+            sys.exit(1)
+    
     root = tk.Tk()
-    gui = GameGUI(root)
+    gui = GameGUI(root, starting_player)
     root.mainloop()

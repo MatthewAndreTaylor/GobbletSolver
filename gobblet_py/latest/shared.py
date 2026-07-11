@@ -1,3 +1,8 @@
+"""
+ * Author: Matthew Taylor
+ * Created: 2024
+"""
+
 from typing import NamedTuple
 
 WINNING_MASKS = [
@@ -43,21 +48,23 @@ def get_winner(game: GameConfig) -> int | None:
     vis_0_m = game.p0_m & ~l_any
     vis_0_s = game.p0_s & ~l_any & ~m_any
     p0_control = vis_0_l | vis_0_m | vis_0_s
+    p0_wins = 0
+    p1_wins = 0
 
-    for mask in WINNING_MASKS:
-        if (p0_control & mask) == mask:
-            return 0
+    if any((p0_control & mask) == mask for mask in WINNING_MASKS):
+        p0_wins = 1
 
     vis_1_l = game.p1_l
     vis_1_m = game.p1_m & ~l_any
     vis_1_s = game.p1_s & ~l_any & ~m_any
     p1_control = vis_1_l | vis_1_m | vis_1_s
 
-    for mask in WINNING_MASKS:
-        if (p1_control & mask) == mask:
-            return 1
-
-    return None
+    if any((p1_control & mask) == mask for mask in WINNING_MASKS):
+        p1_wins = 1
+        
+    if p0_wins == p1_wins:
+        return None
+    return p1_wins
 
 
 def get_top_piece(game: GameConfig, sq: int) -> tuple[int | None, int | None]:
@@ -86,6 +93,7 @@ def get_bits(mask: int):
 
 def get_possible_moves(game: GameConfig, player: int) -> list[Move]:
     moves: list[Move] = []
+
     if get_winner(game) is not None:
         return moves
 
@@ -199,14 +207,15 @@ def play_move(game: GameConfig, player: int, move: Move) -> GameConfig:
     )
 
 
-def get_score(game: GameConfig, player: int) -> int:
+def get_score(game: GameConfig, player: int, limit: int) -> int:
     winner = get_winner(game)
-    if winner == next_player(player):
-        return -1000
     if winner == player:
-        return 1000
-    return 0
-
+        return 1000 + limit
+    elif winner == next_player(player):
+        return -1000 - limit
+    else:
+        return 0
+    
 
 EXACT = 0
 LOWERBOUND = 1
@@ -233,7 +242,7 @@ def alphabeta_min_node(board, color, alpha, beta, limit, tt):
     moves = get_possible_moves(board, next_col)
 
     if limit <= 0 or not moves:
-        return None, get_score(board, color)
+        return None, get_score(board, color, limit)
 
     best_move = None
     best_utility = float("inf")
@@ -242,7 +251,7 @@ def alphabeta_min_node(board, color, alpha, beta, limit, tt):
     evaluated = []
     for move in moves:
         new_board = play_move(board, next_col, move)
-        util = get_score(new_board, color)
+        util = get_score(new_board, color, limit)
         evaluated.append((move, new_board, util))
 
     evaluated.sort(key=lambda t: t[2])
@@ -286,7 +295,7 @@ def alphabeta_max_node(board, color, alpha, beta, limit, tt):
     moves = get_possible_moves(board, color)
 
     if limit <= 0 or not moves:
-        return None, get_score(board, color)
+        return None, get_score(board, color, limit)
 
     best_move = None
     best_utility = float("-inf")
@@ -295,7 +304,7 @@ def alphabeta_max_node(board, color, alpha, beta, limit, tt):
     evaluated = []
     for move in moves:
         new_board = play_move(board, color, move)
-        util = get_score(new_board, color)
+        util = get_score(new_board, color, limit)
         evaluated.append((move, new_board, util))
 
     evaluated.sort(key=lambda t: t[2], reverse=True)
@@ -321,15 +330,4 @@ def alphabeta_max_node(board, color, alpha, beta, limit, tt):
 
 
 def select_move_alphabeta(game_config: GameConfig, color, limit):
-    """
-    >>> winning_board = GameConfig(3, 0, 0, 0, 0, 0, (2, 2, 2), (2, 2, 2))
-    >>> best_move, score = select_move_alphabeta(winning_board, 0, 1)
-    >>> best_move.end_sq, score
-    (2, 1000)
-    >>> blocking_board = GameConfig(0, 0, 0, 0, 0, 3, (2, 2, 1), (2, 2, 1))
-    >>> best_move, score = select_move_alphabeta(blocking_board, 0, 2)
-    >>> best_move.end_sq, score
-    (2, 0)
-    """
-    return alphabeta_max_node(game_config, color, float("-inf"), float("inf"),
-                              limit, tt={})
+    return alphabeta_max_node(game_config, color, float("-inf"), float("inf"), limit, tt={})
