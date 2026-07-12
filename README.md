@@ -10,6 +10,15 @@ python main.py
 
 Select the piece you want to move by clicking it and click an end location on the board afterwards
 
+### Benchmarks
+
+Run the Python performance benchmarks from the base engine directory:
+
+```bash
+cd gobblet_py/base
+python benchmark.py
+```
+
 In the browser you are the <span style="color: lightblue;">blue</span> player and start first.
 
 ## Game information 🔍
