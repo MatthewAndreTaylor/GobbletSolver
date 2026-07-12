@@ -21,7 +21,7 @@ class GameGUI:
         self.game = GameConfig(
             0, 0, 0,  
             0, 0, 0,  
-            (2, 2, 2), (2, 2, 2)
+            INITIAL_UNUSED
         )
         self.current_player = starting_player
         self.buttons = [[None for _ in range(3)] for _ in range(3)]
@@ -60,9 +60,8 @@ class GameGUI:
             widget.destroy()
 
         # Display buttons for currently unused pieces
-        unused = self.game.p0_unused if self.current_player == 0 else self.game.p1_unused
-        for size, count in enumerate(unused):
-            for _ in range(count):
+        for size in range(3):
+            for _ in range(get_unused(self.game.unused, self.current_player, size)):
                 btn = tk.Button(
                     self.piece_frame,
                     text=f"{self.current_player}-{size+1}",
@@ -122,8 +121,8 @@ class GameGUI:
     def ai_move(self):
         if self.current_player == 1 and get_winner(self.game) is None:
             print("Robot says to move: ")
-            best_move, score = select_move_alphabeta(
-                self.game, self.current_player, 12
+            score, best_move = select_move_alphabeta(
+                self.game, self.current_player, 13
             )
             if best_move:
                 print(

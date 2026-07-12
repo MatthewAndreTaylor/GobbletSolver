@@ -232,7 +232,7 @@ function aiMove() {
 
   const timeTaken = Date.now() - startTime;
   console.log(`AI move computed in ${timeTaken} ms`);
-  console.log(aiMove);
+  console.log(ai_selection);
 
   currentGame = playMove(currentGame, 1, aiMove);
   updateBoard(currentGame);

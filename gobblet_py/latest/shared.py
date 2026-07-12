@@ -5,7 +5,7 @@
 
 from typing import NamedTuple
 
-WINNING_MASKS = [
+WINNING_MASKS = (
     0b000_000_111,  # Row 0
     0b000_111_000,  # Row 1
     0b111_000_000,  # Row 2
@@ -14,8 +14,26 @@ WINNING_MASKS = [
     0b100_100_100,  # Col 2
     0b100_010_001,  # Diag 1
     0b001_010_100,  # Diag 2
-]
+)
 
+# Player 0:
+# bits  0-1   small
+# bits  2-3   medium
+# bits  4-5   large
+
+# Player 1:
+# bits  6-7   small
+# bits  8-9   medium
+# bits 10-11  large
+
+INITIAL_UNUSED = (
+    (2 << 0)  |  # p0 small
+    (2 << 2)  |  # p0 medium
+    (2 << 4)  |  # p0 large
+    (2 << 6)  |  # p1 small
+    (2 << 8)  |  # p1 medium
+    (2 << 10)    # p1 large
+)
 
 class GameConfig(NamedTuple):
     # Bitboards for player 0 (bits 0-8 represent squares left-to-right, top-to-bottom)
@@ -28,9 +46,9 @@ class GameConfig(NamedTuple):
     p1_m: int
     p1_l: int
 
-    # Counts of unused pieces: (small, medium, large)
-    p0_unused: tuple[int, int, int]
-    p1_unused: tuple[int, int, int]
+    # Counts of unused pieces: 
+    # (small, medium, large) (small, medium, large) for both players, packed into int
+    unused: int
 
 
 class Move(NamedTuple):
@@ -39,32 +57,26 @@ class Move(NamedTuple):
     end_sq: int  # 0-8 for destination
 
 
-def get_winner(game: GameConfig) -> int | None:
+def game_over(game: GameConfig) -> int | None:
     l_any = game.p0_l | game.p1_l
     m_any = game.p0_m | game.p1_m
 
-    # A piece is visible if no larger piece is occupying the same square
-    vis_0_l = game.p0_l
-    vis_0_m = game.p0_m & ~l_any
-    vis_0_s = game.p0_s & ~l_any & ~m_any
-    p0_control = vis_0_l | vis_0_m | vis_0_s
-    p0_wins = 0
-    p1_wins = 0
+    p0_control = (
+        game.p0_l |
+        (game.p0_m & ~l_any) |
+        (game.p0_s & ~l_any & ~m_any)
+    )
+    p1_control = (
+        game.p1_l |
+        (game.p1_m & ~l_any) |
+        (game.p1_s & ~l_any & ~m_any)
+    )
 
-    if any((p0_control & mask) == mask for mask in WINNING_MASKS):
-        p0_wins = 1
-
-    vis_1_l = game.p1_l
-    vis_1_m = game.p1_m & ~l_any
-    vis_1_s = game.p1_s & ~l_any & ~m_any
-    p1_control = vis_1_l | vis_1_m | vis_1_s
-
-    if any((p1_control & mask) == mask for mask in WINNING_MASKS):
-        p1_wins = 1
-        
-    if p0_wins == p1_wins:
-        return None
-    return p1_wins
+    return any(
+        (p0_control & mask) == mask or
+        (p1_control & mask) == mask
+        for mask in WINNING_MASKS
+    )
 
 
 def get_top_piece(game: GameConfig, sq: int) -> tuple[int | None, int | None]:
@@ -89,15 +101,19 @@ def get_bits(mask: int):
     for i in range(9):
         if mask & (1 << i):
             yield i
+            
+            
+
+def get_unused(unused: int, player: int, size: int) -> int:
+    shift = player * 6 + size * 2
+    return (unused >> shift) & 0b11
+
+def dec_unused(unused: int, player: int, size: int) -> int:
+    return unused - (1 << (player * 6 + size * 2))
 
 
 def get_possible_moves(game: GameConfig, player: int) -> list[Move]:
     moves: list[Move] = []
-
-    if get_winner(game) is not None:
-        return moves
-
-    unused = game.p0_unused if player == 0 else game.p1_unused
 
     # Combined bitmasks of all pieces by size across both players
     l_any = game.p0_l | game.p1_l
@@ -110,35 +126,35 @@ def get_possible_moves(game: GameConfig, player: int) -> list[Move]:
     can_place_s = ~(l_any | m_any | s_any) & 0x1FF
 
     # Placing unused pieces
-    if unused[2] > 0:
-        for sq in get_bits(can_place_l):
-            moves.append(Move(2, None, sq))
-    if unused[1] > 0:
-        for sq in get_bits(can_place_m):
-            moves.append(Move(1, None, sq))
-    if unused[0] > 0:
+    if get_unused(game.unused, player, 0):
         for sq in get_bits(can_place_s):
             moves.append(Move(0, None, sq))
+    if get_unused(game.unused, player, 1) > 0:
+        for sq in get_bits(can_place_m):
+            moves.append(Move(1, None, sq))
+    if get_unused(game.unused, player, 2) > 0:
+        for sq in get_bits(can_place_l):
+            moves.append(Move(2, None, sq))
 
     # Moving visible pieces on the board
     vis_l = game.p0_l if player == 0 else game.p1_l
     vis_m = (game.p0_m if player == 0 else game.p1_m) & ~l_any
     vis_s = (game.p0_s if player == 0 else game.p1_s) & ~(l_any | m_any)
-
-    for sq in get_bits(vis_l):
-        for target in get_bits(can_place_l):
+    
+    for sq in get_bits(vis_s):
+        for target in get_bits(can_place_s):
             if target != sq:
-                moves.append(Move(2, sq, target))
-
+                moves.append(Move(0, sq, target))
+                
     for sq in get_bits(vis_m):
         for target in get_bits(can_place_m):
             if target != sq:
                 moves.append(Move(1, sq, target))
 
-    for sq in get_bits(vis_s):
-        for target in get_bits(can_place_s):
+    for sq in get_bits(vis_l):
+        for target in get_bits(can_place_l):
             if target != sq:
-                moves.append(Move(0, sq, target))
+                moves.append(Move(2, sq, target))
 
     return moves
 
@@ -148,186 +164,143 @@ def next_player(player: int) -> int:
 
 
 def play_move(game: GameConfig, player: int, move: Move) -> GameConfig:
-    """
-    >>> game = GameConfig(0, 0, 0, 0, 0, 0, (2, 2, 2), (2, 2, 2))
-    >>> play_move(game, 0, Move(0, None, 4))
-    GameConfig(p0_s=16, p0_m=0, p0_l=0, p1_s=0, p1_m=0, p1_l=0, p0_unused=(1, 2, 2), p1_unused=(2, 2, 2))
-    >>> game = GameConfig(0, 2, 0, 0, 0, 0, (2, 2, 2), (2, 2, 2))
-    >>> play_move(game, 0, Move(1, 1, 8))
-    GameConfig(p0_s=0, p0_m=256, p0_l=0, p1_s=0, p1_m=0, p1_l=0, p0_unused=(2, 2, 2), p1_unused=(2, 2, 2))
-    """
-    p0_s, p0_m, p0_l = game.p0_s, game.p0_m, game.p0_l
-    p1_s, p1_m, p1_l = game.p1_s, game.p1_m, game.p1_l
-    p0_u, p1_u = list(game.p0_unused), list(game.p1_unused)
+    boards = [
+        game.p0_s, game.p0_m, game.p0_l,
+        game.p1_s, game.p1_m, game.p1_l,
+    ]
 
     size, start_sq, end_sq = move
+    idx = player * 3 + size
+    unused = game.unused
 
-    if start_sq is not None:
-        mask = ~(1 << start_sq)
-        if player == 0:
-            if size == 0:
-                p0_s &= mask
-            elif size == 1:
-                p0_m &= mask
-            else:
-                p0_l &= mask
-        else:
-            if size == 0:
-                p1_s &= mask
-            elif size == 1:
-                p1_m &= mask
-            else:
-                p1_l &= mask
+    if start_sq is None:
+        unused = dec_unused(game.unused, player, size)
     else:
-        if player == 0:
-            p0_u[size] -= 1
-        else:
-            p1_u[size] -= 1
+        boards[idx] &= ~(1 << start_sq)
 
-    target_mask = 1 << end_sq
+    boards[idx] |= 1 << end_sq
+
+    return GameConfig(*boards, unused)
+    
+    
+def get_winner(game: GameConfig) -> int | None:
+    l_any = game.p0_l | game.p1_l
+    m_any = game.p0_m | game.p1_m
+
+    p0_control = (
+        game.p0_l |
+        (game.p0_m & ~l_any) |
+        (game.p0_s & ~l_any & ~m_any)
+    )
+    p1_control = (
+        game.p1_l |
+        (game.p1_m & ~l_any) |
+        (game.p1_s & ~l_any & ~m_any)
+    )
+    
+    p0_wins = any((p0_control & mask) == mask for mask in WINNING_MASKS)
+    p1_wins = any((p1_control & mask) == mask for mask in WINNING_MASKS)
+    
+    if p0_wins and p1_wins:
+        return -1  # Tie
+    if p0_wins:
+        return 0
+    if p1_wins:
+        return 1
+        
+    return None
+
+
+def get_control(game: GameConfig, player: int):
+    l_any = game.p0_l | game.p1_l
+    m_any = game.p0_m | game.p1_m
+
     if player == 0:
-        if size == 0:
-            p0_s |= target_mask
-        elif size == 1:
-            p0_m |= target_mask
-        else:
-            p0_l |= target_mask
-    else:
-        if size == 0:
-            p1_s |= target_mask
-        elif size == 1:
-            p1_m |= target_mask
-        else:
-            p1_l |= target_mask
+        return (
+            game.p0_l |
+            (game.p0_m & ~l_any) |
+            (game.p0_s & ~l_any & ~m_any)
+        )
 
-    return GameConfig(
-        p0_s, p0_m, p0_l,
-        p1_s, p1_m, p1_l,
-        tuple(p0_u), tuple(p1_u)
+    else:
+        return (
+            game.p1_l |
+            (game.p1_m & ~l_any) |
+            (game.p1_s & ~l_any & ~m_any)
+        )
+
+
+def get_score(game: GameConfig, player: int) -> int:
+    winner = get_winner(game)
+
+    if winner == player:
+        return 100000
+
+    score = 0
+    control = get_control(game, player)
+
+    for mask in WINNING_MASKS:
+        pieces = (control & mask).bit_count()
+
+        if pieces == 2:
+            score += 100
+
+    return score
+
+
+def move_score(game: GameConfig, player: int, move: Move) -> int:
+    # Score moves based on how many lines they create or block
+    new_game = play_move(game, player, move)
+    return get_score(new_game, player)
+
+
+
+WIN_SCORE = 1000000
+
+def negamax(game, player, alpha, beta, limit):
+    winner = get_winner(game)
+
+    if winner is not None:
+        if winner == -1:
+            return 0, None
+        elif winner == player:
+            # add a bonus for winning sooner
+            return WIN_SCORE + limit, None
+        else:
+            return -WIN_SCORE - limit, None
+    
+    if limit <= 0:
+        return get_score(game, player), None
+
+    moves = get_possible_moves(game, player)
+
+    if not moves:
+        return 0, None
+
+    moves.sort(
+        key=lambda m: move_score(game, player, m),
+        reverse=True,
     )
 
-
-def get_score(game: GameConfig, player: int, limit: int) -> int:
-    winner = get_winner(game)
-    if winner == player:
-        return 1000 + limit
-    elif winner == next_player(player):
-        return -1000 - limit
-    else:
-        return 0
-    
-
-EXACT = 0
-LOWERBOUND = 1
-UPPERBOUND = 2
-
-
-def alphabeta_min_node(board, color, alpha, beta, limit, tt):
-    next_col = next_player(color)
-    state_key = (board, next_col)
-
-    if state_key in tt:
-        entry_depth, flag, value, move = tt[state_key]
-        if entry_depth >= limit:
-            if flag == EXACT:
-                return move, value
-            elif flag == LOWERBOUND:
-                alpha = max(alpha, value)
-            elif flag == UPPERBOUND:
-                beta = min(beta, value)
-
-            if alpha >= beta:
-                return move, value
-
-    moves = get_possible_moves(board, next_col)
-
-    if limit <= 0 or not moves:
-        return None, get_score(board, color, limit)
-
     best_move = None
-    best_utility = float("inf")
-    original_beta = beta
+    best_score = -float("inf")
 
-    evaluated = []
     for move in moves:
-        new_board = play_move(board, next_col, move)
-        util = get_score(new_board, color, limit)
-        evaluated.append((move, new_board, util))
+        child = play_move(game, player, move)
+        score, _ = negamax(child, 1-player, -beta, -alpha, limit - 1)
+        score = -score
 
-    evaluated.sort(key=lambda t: t[2])
-
-    for move, new_board, _ in evaluated:
-        _, utility = alphabeta_max_node(new_board, color, alpha, beta, limit-1, tt)
-
-        if utility < best_utility:
+        if score > best_score:
+            best_score = score
             best_move = move
-            best_utility = utility
+ 
+        alpha = max(alpha, score)
 
-        beta = min(beta, utility)
-        if beta <= alpha:
+        if alpha >= beta:
             break
 
-    flag = EXACT
-    if best_utility <= alpha:
-        flag = UPPERBOUND
-    elif best_utility >= original_beta:
-        flag = LOWERBOUND
-
-    tt[state_key] = (limit, flag, best_utility, best_move)
-    return best_move, best_utility
-
-
-def alphabeta_max_node(board, color, alpha, beta, limit, tt):
-    state_key = (board, color)
-    if state_key in tt:
-        entry_depth, flag, value, move = tt[state_key]
-        if entry_depth >= limit:
-            if flag == EXACT:
-                return move, value
-            elif flag == LOWERBOUND:
-                alpha = max(alpha, value)
-            elif flag == UPPERBOUND:
-                beta = min(beta, value)
-
-            if alpha >= beta:
-                return move, value
-
-    moves = get_possible_moves(board, color)
-
-    if limit <= 0 or not moves:
-        return None, get_score(board, color, limit)
-
-    best_move = None
-    best_utility = float("-inf")
-    original_alpha = alpha
-
-    evaluated = []
-    for move in moves:
-        new_board = play_move(board, color, move)
-        util = get_score(new_board, color, limit)
-        evaluated.append((move, new_board, util))
-
-    evaluated.sort(key=lambda t: t[2], reverse=True)
-
-    for move, new_board, _ in evaluated:
-        _, utility = alphabeta_min_node(new_board, color, alpha, beta, limit-1, tt)
-        if utility > best_utility:
-            best_move = move
-            best_utility = utility
-
-        alpha = max(alpha, utility)
-        if beta <= alpha:
-            break
-
-    flag = EXACT
-    if best_utility <= original_alpha:
-        flag = UPPERBOUND
-    elif best_utility >= beta:
-        flag = LOWERBOUND
-
-    tt[state_key] = (limit, flag, best_utility, best_move)
-    return best_move, best_utility
+    return best_score, best_move
 
 
 def select_move_alphabeta(game_config: GameConfig, color, limit):
-    return alphabeta_max_node(game_config, color, float("-inf"), float("inf"), limit, tt={})
+    return negamax(game_config, color, -float("inf"), float("inf"), limit)
