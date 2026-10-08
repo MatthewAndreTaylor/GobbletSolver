@@ -1,11 +1,10 @@
-"""Performance benchmarks for the base Gobblet engine."""
+"""Performance benchmarks for the current Gobblet engine."""
 
 from __future__ import annotations
 
 from timeit import timeit
 
-from main import select_move_alphabeta
-from shared import GameConfig
+from shared import GameConfig, INITIAL_UNUSED, select_move_alphabeta
 
 
 
@@ -13,7 +12,7 @@ def build_empty_game() -> GameConfig:
     return GameConfig(
             0, 0, 0,  
             0, 0, 0,  
-            (2, 2, 2), (2, 2, 2)
+            INITIAL_UNUSED
         )
 
 

@@ -17,7 +17,9 @@ const pieceSizes = ["piece-size-1", "piece-size-2", "piece-size-3"];
 
 const aistartButton = document.getElementById("ai-start");
 const humanstartButton = document.getElementById("human-start");
-const depthLimit = 8;
+const depthLimit = 20;
+const aiThinking = document.getElementById("ai-thinking");
+const outcomePrediction = document.getElementById("outcome-prediction");
 
 let currentGame = null;
 let playerColors = ["blue", "orange"];
@@ -25,6 +27,32 @@ let selection = null;
 let selectedElement = null;
 let my_turn = true;
 let announcedOutcome = null;
+let moveHistory = [];
+let repetitionHistory = [];
+
+function gameIsOver() {
+  return getWinner(currentGame) !== null || isRepetitionDraw(repetitionHistory);
+}
+
+function showSearchPrediction(score, depth, movesPlayed) {
+  if (Math.abs(score) >= WIN_SCORE) {
+    // Mate scores include unused search depth; the board already shows the AI move.
+    const remainingMoves = depth - (Math.abs(score) - WIN_SCORE) - movesPlayed;
+    const winner = score > 0 ? "AI" : "Human";
+    outcomePrediction.textContent = `${winner} can force a win in ${remainingMoves} ${remainingMoves === 1 ? "move" : "moves"}.`;
+  } else if (score === DRAW_SCORE) {
+    outcomePrediction.textContent = "AI can secure a draw.";
+  } else {
+    outcomePrediction.textContent = "Outcome uncertain.";
+  }
+}
+
+function recordMove(player, move) {
+  const entry = { player, size: move.size, start_sq: move.start_sq, end_sq: move.end_sq };
+  moveHistory.push(entry);
+  repetitionHistory = advanceHistory(repetitionHistory, currentGame, 1 - player, move);
+  console.log(`Gobblet move ${moveHistory.length}: ${JSON.stringify(entry)}`);
+}
 
 function hideButtons() {
   aistartButton.disabled = true;
@@ -104,7 +132,7 @@ function renderUnusedPieces(game) {
 
 function handleUnusedPieceClick(e) {
   const pieceCell = e.target.closest(".cell[data-player][data-size]");
-  if (!pieceCell || !my_turn || getWinner(currentGame) !== null) {
+  if (!pieceCell || !my_turn || gameIsOver()) {
     return;
   }
 
@@ -144,18 +172,26 @@ function announceOutcome(game) {
     outcome = "You Win!";
   } else if (winner === 1) {
     outcome = "You Lose!";
-  } else if (getPossibleMoves(game, 0).length === 0 && getPossibleMoves(game, 1).length === 0) {
+  } else if (winner === -1 || isRepetitionDraw(repetitionHistory) ||
+      (getPossibleMoves(game, 0).length === 0 && getPossibleMoves(game, 1).length === 0)) {
     outcome = "Draw!";
   }
 
+  if (outcome) {
+    outcomePrediction.textContent = winner === 0 ? "Human wins." : winner === 1 ? "AI wins." : "Draw.";
+  }
   if (outcome && outcome !== announcedOutcome) {
     announcedOutcome = outcome;
+    my_turn = false;
+    selection = null;
+    clearSelectionHighlight();
+    console.log(`Gobblet replay: ${JSON.stringify(moveHistory)}`);
     showToast(outcome);
   }
 }
 
 aistartButton.addEventListener("click", () => {
-  startNewGame();
+  startNewGame(1);
   aiMove();
   hideButtons();
 });
@@ -206,12 +242,15 @@ function updateBoard(game) {
   announceOutcome(game);
 }
 
-function startNewGame() {
+function startNewGame(startingPlayer = 0) {
   currentGame = createStartingGame();
+  moveHistory = [];
+  repetitionHistory = [positionKey(currentGame, startingPlayer)];
   selection = null;
   clearSelectionHighlight();
-  my_turn = true;
+  my_turn = startingPlayer === 0;
   announcedOutcome = null;
+  outcomePrediction.textContent = "Outcome not yet analyzed.";
   updateBoard(currentGame);
 }
 
@@ -224,24 +263,44 @@ orangeUnusedPieces.addEventListener("click", (e) => {
 });
 
 function aiMove() {
+  if (!aiThinking.hidden) return;
   my_turn = false;
-  const startTime = Date.now();
+  if (gameIsOver()) {
+    return;
+  }
+  aiThinking.hidden = false;
+  outcomePrediction.textContent = "Analyzing position...";
+  // Allow a paint before the synchronous search so the spinner is visible.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    try {
+      const startTime = Date.now();
+      const ai_selection = selectMoveAlphabeta(currentGame, 1, depthLimit, undefined, repetitionHistory);
+      const move = ai_selection[0];
+      console.log(`AI move computed in ${Date.now() - startTime} ms`);
+      console.log(ai_selection);
 
-  const ai_selection = selectMoveAlphabeta(currentGame, 1, depthLimit);
-  const aiMove = ai_selection[0];
-
-  const timeTaken = Date.now() - startTime;
-  console.log(`AI move computed in ${timeTaken} ms`);
-  console.log(ai_selection);
-
-  currentGame = playMove(currentGame, 1, aiMove);
-  updateBoard(currentGame);
-  my_turn = true;
+      if (move === null) {
+        announceOutcome(currentGame);
+        if (announcedOutcome === null) outcomePrediction.textContent = "Analysis unavailable.";
+        return;
+      }
+      currentGame = playMove(currentGame, 1, move);
+      recordMove(1, move);
+      updateBoard(currentGame);
+      if (announcedOutcome === null) showSearchPrediction(ai_selection[1], depthLimit, 1);
+      my_turn = !gameIsOver();
+    } catch (error) {
+      outcomePrediction.textContent = "Analysis unavailable.";
+      throw error;
+    } finally {
+      aiThinking.hidden = true;
+    }
+  }));
 }
 
 boardElement.addEventListener("click", (e) => {
   const boardCell = e.target.closest(".cell[data-row][data-col]");
-  if (!boardCell || !my_turn) return;
+  if (!boardCell || !my_turn || gameIsOver()) return;
 
   const row = parseInt(boardCell.dataset.row, 10);
   const col = parseInt(boardCell.dataset.col, 10);
@@ -275,13 +334,14 @@ boardElement.addEventListener("click", (e) => {
   }
 
   currentGame = playMove(currentGame, 0, move);
+  recordMove(0, move);
   clearSelectionHighlight();
   selection = null;
+  outcomePrediction.textContent = "Outcome not yet analyzed.";
   updateBoard(currentGame);
 
   aiMove();
 });
 
 createBoard();
-currentGame = createStartingGame();
-updateBoard(currentGame);
+startNewGame();

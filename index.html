@@ -14,7 +14,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
         }
         .container {
@@ -113,6 +113,43 @@
         #color-toggle {
             background-color: #6c757d;
         }
+        #ai-thinking:not([hidden]) {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            color: #555;
+            font-size: 14px;
+        }
+        .prediction {
+            margin: 12px 16px 0;
+            max-width: 360px;
+            text-align: center;
+        }
+        #outcome-prediction {
+            margin: 0 0 4px;
+            font-weight: bold;
+        }
+        .prediction-note {
+            margin: 0;
+            font-size: 12px;
+            color: #555;
+        }
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ddd;
+            border-top-color: #333;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            will-change: transform;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .spinner { animation: none; }
+        }
         @media (max-width: 600px) {
             .board {
                 grid-template-columns: repeat(3, 60px);
@@ -146,6 +183,14 @@
         <div id="toast"></div>
         <div id="orange-unused-pieces" class="piece-container"></div>
         <div id="board" class="board"></div>
+        <div class="prediction">
+            <p id="outcome-prediction" role="status" aria-live="polite">Outcome not yet analyzed.</p>
+            <p class="prediction-note">With best play. Each player's turn counts as one move.</p>
+        </div>
+        <div id="ai-thinking" role="status" hidden>
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Thinking…</span>
+        </div>
         <div id="blue-unused-pieces"  class="piece-container"></div>
         <div class="button-container">
             <button id="ai-start">AI Start</button>
